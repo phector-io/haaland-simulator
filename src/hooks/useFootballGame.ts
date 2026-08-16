@@ -346,6 +346,10 @@ export const useFootballGame = () => {
                 vx = -Math.abs(vx);
             }
 
+            if (x <= radius) {
+                x = radius;
+            }
+
             x = clamp(x, radius, width - radius);
             y = clamp(y, radius, height - radius);
 
