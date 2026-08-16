@@ -40,6 +40,7 @@ export const useFootballGame = () => {
     const hasBeenShotRef = useRef(false);
     const isDraggingRef = useRef(false);
     const respawnTimeoutRef = useRef<number | null>(null);
+    const goalWindowRef = useRef(false);
 
     const [playerScore, setPlayerScore] = useState(0);
     const [opponentScore] = useState(0);
@@ -223,9 +224,11 @@ export const useFootballGame = () => {
             x += vx;
             y += vy;
 
-            const rightGoalTop = height * 0.28;
-            const rightGoalBottom = height * 0.72;
+            const rightGoalTop = height * 0.28 + 22;
+            const rightGoalBottom = height * 0.72 - 22;
             const rightGoalLine = width - 10;
+            const goalInnerLeft = width - 120;
+            const ballPadding = radius + 10;
 
             if (y <= radius || y >= height - radius) {
                 vy *= -1;
@@ -237,15 +240,18 @@ export const useFootballGame = () => {
                 return;
             }
 
-            if (
-                x + radius >= rightGoalLine &&
-                y >= rightGoalTop - radius &&
-                y <= rightGoalBottom + radius
-            ) {
+            const isInsideGoalOpening =
+                x + ballPadding >= rightGoalLine &&
+                x - ballPadding >= goalInnerLeft &&
+                y >= rightGoalTop &&
+                y <= rightGoalBottom;
+
+            if (isInsideGoalOpening && !goalWindowRef.current) {
+                goalWindowRef.current = true;
                 setPlayerScore((current) => current + 1);
                 setMessage("Goal! Haaland scores");
-                resetBall("left");
-                return;
+            } else if (!isInsideGoalOpening) {
+                goalWindowRef.current = false;
             }
 
             if (x + radius >= width) {
