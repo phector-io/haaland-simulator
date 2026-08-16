@@ -10,6 +10,7 @@ function App() {
         ball,
         player,
         playerScore,
+        setPlayerScore,
         opponentScore,
         message,
         showFailModal,
@@ -81,7 +82,15 @@ function App() {
                 </div>
             </div>
 
-            {showFailModal && <FailModal onRetry={() => resetBall("left", true)} />}
+            {showFailModal && (
+                <FailModal
+                    score={playerScore}
+                    onRetry={() => {
+                        setPlayerScore(0);
+                        resetBall("left", true);
+                    }}
+                />
+            )}
         </main>
     );
 }

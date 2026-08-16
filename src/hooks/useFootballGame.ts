@@ -120,7 +120,6 @@ export const useFootballGame = () => {
         const field = fieldRef.current;
         const height = field?.clientHeight ?? 540;
 
-        setPlayerScore(0);
         setShowFailModal(true);
         ballRef.current = {
             x: -999,
@@ -366,6 +365,7 @@ export const useFootballGame = () => {
         ball,
         player,
         playerScore,
+        setPlayerScore,
         opponentScore,
         message,
         showFailModal,
