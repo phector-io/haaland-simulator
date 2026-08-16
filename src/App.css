@@ -466,6 +466,15 @@ body {
   font-size: 0.92rem;
 }
 
+.fail-modal p:first-of-type {
+	font-size: 1.5rem;
+	font-weight: bold;
+}
+
+.fail-modal p:last-of-type {
+	margin-bottom: .5rem;
+}
+
 .fail-modal-actions {
   display: flex;
   flex-direction: column;
