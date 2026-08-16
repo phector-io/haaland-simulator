@@ -1,3 +1,4 @@
+import haalandImage from "../assets/haaland.png";
 import type { Player } from "../hooks/useFootballGame";
 
 type PlayerSpriteProps = {
@@ -32,6 +33,6 @@ export const PlayerSprite = ({
             height: `${player.height}px`,
         }}
     >
-        <img src="/src/assets/haaland.png" alt="Haaland" />
+        <img src={haalandImage} alt="Haaland" />
     </div>
 );
