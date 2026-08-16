@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
 import haalandImg from "./assets/haaland.png";
 import "./App.css";
@@ -43,8 +44,9 @@ function App() {
     const respawnTimeoutRef = useRef<number | null>(null);
 
     const [playerScore, setPlayerScore] = useState(0);
-    const [opponentScore, setOpponentScore] = useState(0);
+    const [opponentScore] = useState(0);
     const [message, setMessage] = useState("Drag Haaland to shoot");
+    const [showFailModal, setShowFailModal] = useState(false);
     const [ball, setBall] = useState<Ball>({
         x: 220,
         y: 220,
@@ -71,6 +73,7 @@ function App() {
             window.clearTimeout(respawnTimeoutRef.current);
         }
 
+        setShowFailModal(false);
         ballRef.current = {
             x: centerX,
             y: centerY,
@@ -97,6 +100,23 @@ function App() {
             setBall({ ...ballRef.current });
             setMessage(direction === "right" ? "Haaland shoots!" : "Opposition attacks!");
         }, 700);
+    };
+
+    const triggerFail = () => {
+        const field = fieldRef.current;
+        const height = field?.clientHeight ?? 540;
+
+        setPlayerScore(0);
+        setShowFailModal(true);
+        ballRef.current = {
+            x: -999,
+            y: height / 2,
+            vx: 0,
+            vy: 0,
+            radius: 16,
+        };
+        setBall({ ...ballRef.current });
+        setMessage("Fail! Retry");
     };
 
     const handleBallPlayerCollision = () => {
@@ -170,17 +190,18 @@ function App() {
     const handlePlayerPointerUp = (
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
-        if (isDraggingRef.current) {
-            isDraggingRef.current = false;
-            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId);
-            }
+        if (!isDraggingRef.current && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+            return;
+        }
+
+        isDraggingRef.current = false;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
         }
     };
 
     useEffect(() => {
         resetBall("left");
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setMessage("Drag Haaland to shoot");
     }, []);
 
@@ -205,10 +226,9 @@ function App() {
             x += vx;
             y += vy;
 
-            const leftGoalTop = height * 0.28;
-            const leftGoalBottom = height * 0.72;
             const rightGoalTop = height * 0.28;
             const rightGoalBottom = height * 0.72;
+            const rightGoalLine = width - 10;
 
             if (y <= radius || y >= height - radius) {
                 vy *= -1;
@@ -220,32 +240,25 @@ function App() {
                 return;
             }
 
-            if (x + radius >= width) {
-                if (y > rightGoalTop && y < rightGoalBottom) {
-                    setPlayerScore((current) => current + 1);
-                    setMessage("Goal! Haaland scores");
-                    resetBall("left");
-                    return;
-                }
+            if (
+                x + radius >= rightGoalLine &&
+                y >= rightGoalTop - radius &&
+                y <= rightGoalBottom + radius
+            ) {
+                setPlayerScore((current) => current + 1);
+                setMessage("Goal! Haaland scores");
+                resetBall("left");
+                return;
+            }
 
+            if (x + radius >= width) {
                 x = width - radius;
                 vx *= -1;
             }
 
-            if (x - radius <= 0) {
-                if (
-                    y > leftGoalTop &&
-                    y < leftGoalBottom &&
-                    !hasBeenShotRef.current
-                ) {
-                    setOpponentScore((current) => current + 1);
-                    setMessage("Goal for the opponent!");
-                    resetBall("right");
-                    return;
-                }
-
-                x = radius;
-                vx *= -1;
+            if (x + radius <= 0) {
+                triggerFail();
+                return;
             }
 
             ballRef.current = { x, y, vx, vy, radius };
@@ -277,10 +290,6 @@ function App() {
                     <div className="pitch-stripes" />
                     <div className="center-circle" />
                     <div
-                        className="goal goal-left"
-                        aria-label="Goal on the left"
-                    />
-                    <div
                         className="goal goal-right"
                         aria-label="Goal on the right"
                     />
@@ -291,6 +300,7 @@ function App() {
                         onPointerDown={handlePlayerPointerDown}
                         onPointerMove={handlePlayerPointerMove}
                         onPointerUp={handlePlayerPointerUp}
+                        onPointerCancel={handlePlayerPointerUp}
                         onPointerLeave={handlePlayerPointerUp}
                         style={{
                             left: `${player.x}px`,
@@ -313,6 +323,18 @@ function App() {
                     <div className="message-box">{message}</div>
                 </div>
             </div>
+
+            {showFailModal && (
+                <div className="fail-modal-backdrop" role="dialog" aria-modal="true">
+                    <div className="fail-modal">
+                        <h2>FAIL</h2>
+                        <p>The ball went out of bounds.</p>
+                        <button type="button" onClick={() => resetBall("left")}>
+                            Retry
+                        </button>
+                    </div>
+                </div>
+            )}
         </main>
     );
 }
