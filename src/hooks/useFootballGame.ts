@@ -192,7 +192,7 @@ export const useFootballGame = () => {
 
         joystickVectorRef.current = { x: normalizedX, y: normalizedY };
         setJoystick({ x: clampedX, y: clampedY, active: true });
-        movePlayer(normalizedX * 18, normalizedY * 18);
+        movePlayer(normalizedX * 12, normalizedY * 12);
     }, [movePlayer]);
 
     const handlePlayerPointerDown = useCallback((
