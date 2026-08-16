@@ -220,9 +220,16 @@ export const useFootballGame = () => {
             const height = field.clientHeight;
             let { x, y, vx, vy } = ballRef.current;
             const { radius } = ballRef.current;
+            const acceleration = 0.01;
 
-            x += vx;
-            y += vy;
+            const nextVx = vx * (1 + acceleration);
+            const nextVy = vy * (1 + acceleration);
+
+            x += nextVx;
+            y += nextVy;
+
+            vx = nextVx;
+            vy = nextVy;
 
             const rightGoalTop = height * 0.28 + 22;
             const rightGoalBottom = height * 0.72 - 22;
