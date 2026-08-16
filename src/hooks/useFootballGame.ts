@@ -40,6 +40,7 @@ export const useFootballGame = () => {
     const hasBeenShotRef = useRef(false);
     const isDraggingRef = useRef(false);
     const respawnTimeoutRef = useRef<number | null>(null);
+    const goalSpeechTimeoutRef = useRef<number | null>(null);
     const goalWindowRef = useRef(false);
     const joystickVectorRef = useRef({ x: 0, y: 0 });
     const keyboardStateRef = useRef({ left: false, right: false, up: false, down: false });
@@ -47,6 +48,7 @@ export const useFootballGame = () => {
     const [playerScore, setPlayerScore] = useState(0);
     const [opponentScore] = useState(0);
     const [message, setMessage] = useState("Drag Haaland to shoot");
+    const [goalSpeech, setGoalSpeech] = useState<string | null>(null);
     const [joystick, setJoystick] = useState({ x: 0, y: 0, active: false });
     const [showJoystick, setShowJoystick] = useState(false);
     const [showFailModal, setShowFailModal] = useState(false);
@@ -130,6 +132,17 @@ export const useFootballGame = () => {
         };
         setBall({ ...ballRef.current });
         setMessage("Fail! Retry");
+    }, []);
+
+    const triggerGoalSpeech = useCallback(() => {
+        if (goalSpeechTimeoutRef.current) {
+            window.clearTimeout(goalSpeechTimeoutRef.current);
+        }
+
+        setGoalSpeech("Nice!");
+        goalSpeechTimeoutRef.current = window.setTimeout(() => {
+            setGoalSpeech(null);
+        }, 700);
     }, []);
 
     const handleBallPlayerCollision = useCallback(() => {
@@ -229,11 +242,10 @@ export const useFootballGame = () => {
     useEffect(() => {
         const updatePointerMode = () => {
             const isTouchMode = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-            const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
             const hasTouchScreen = navigator.maxTouchPoints > 0;
-            const isTabletViewport = window.matchMedia("(max-width: 1024px)").matches;
+            const isSmallTouchViewport = window.innerWidth <= 1024 && hasTouchScreen;
 
-            setShowJoystick(isTouchMode || isCoarsePointer || hasTouchScreen || isTabletViewport);
+            setShowJoystick(Boolean(isTouchMode || isSmallTouchViewport));
         };
 
         updatePointerMode();
@@ -269,6 +281,9 @@ export const useFootballGame = () => {
             window.removeEventListener("keyup", handleKeyUp);
             if (respawnTimeoutRef.current) {
                 window.clearTimeout(respawnTimeoutRef.current);
+            }
+            if (goalSpeechTimeoutRef.current) {
+                window.clearTimeout(goalSpeechTimeoutRef.current);
             }
         };
     }, []);
@@ -330,6 +345,7 @@ export const useFootballGame = () => {
             if (isInsideGoalOpening && !goalWindowRef.current) {
                 goalWindowRef.current = true;
                 setPlayerScore((current) => current + 1);
+                triggerGoalSpeech();
                 setMessage("Goal! Haaland scores");
             } else if (!isInsideGoalOpening) {
                 goalWindowRef.current = false;
@@ -368,6 +384,7 @@ export const useFootballGame = () => {
         setPlayerScore,
         opponentScore,
         message,
+        goalSpeech,
         showFailModal,
         handlePlayerPointerDown,
         handlePlayerPointerMove,

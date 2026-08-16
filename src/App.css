@@ -315,6 +315,46 @@ body {
   -webkit-backdrop-filter: blur(6px);
 }
 
+.comic-bubble {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: #f4f4f0;
+  border: 3px solid #1b1b1b;
+  box-shadow: 0 6px 0 rgba(27, 27, 27, 0.9);
+  color: #1a1a1a;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  z-index: 6;
+  transform: translate(-50%, -100%) scale(0.9);
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.comic-bubble.visible {
+  opacity: 1;
+  transform: translate(-50%, -120%) scale(1);
+}
+
+.comic-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  width: 14px;
+  height: 14px;
+  background: #f4f4f0;
+  border-right: 3px solid #1b1b1b;
+  border-bottom: 3px solid #1b1b1b;
+  transform: translateX(-50%) rotate(45deg);
+}
+
 .desktop-controls {
   position: absolute;
   right: 20px;

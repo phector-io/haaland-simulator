@@ -13,6 +13,7 @@ function App() {
         setPlayerScore,
         opponentScore,
         message,
+        goalSpeech,
         showFailModal,
         handlePlayerPointerDown,
         handlePlayerPointerMove,
@@ -48,6 +49,18 @@ function App() {
                     />
 
                     <BallSprite ball={ball} />
+
+                    {goalSpeech && (
+                        <div
+                            className="comic-bubble visible"
+                            style={{
+                                left: `${player.x + player.width / 2}px`,
+                                top: `${player.y - 18}px`,
+                            }}
+                        >
+                            {goalSpeech}
+                        </div>
+                    )}
 
                     <div className="message-box">{message}</div>
 
