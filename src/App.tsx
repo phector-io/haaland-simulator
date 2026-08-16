@@ -45,7 +45,7 @@ function App() {
                 </div>
             </div>
 
-            {showFailModal && <FailModal onRetry={() => resetBall("left")} />}
+            {showFailModal && <FailModal onRetry={() => resetBall("left", true)} />}
         </main>
     );
 }

@@ -60,7 +60,7 @@ export const useFootballGame = () => {
         height: PLAYER_HEIGHT,
     });
 
-    const resetBall = useCallback((direction: "left" | "right") => {
+    const resetBall = useCallback((direction: "left" | "right", preservePlayerPosition = false) => {
         const field = fieldRef.current;
         const width = field?.clientWidth ?? 360;
         const height = field?.clientHeight ?? 540;
@@ -79,6 +79,18 @@ export const useFootballGame = () => {
             vy: 0,
             radius: 16,
         };
+
+        if (!preservePlayerPosition) {
+            const resetPlayer = {
+                x: 18,
+                y: 340,
+                width: PLAYER_WIDTH,
+                height: PLAYER_HEIGHT,
+            };
+
+            playerRef.current = resetPlayer;
+            setPlayer(resetPlayer);
+        }
 
         hasBeenShotRef.current = false;
         setBall({ ...ballRef.current });
