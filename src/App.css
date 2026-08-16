@@ -299,7 +299,7 @@ body {
 .message-box {
   position: absolute;
   left: 50%;
-  bottom: max(18px, env(safe-area-inset-bottom));
+  bottom: max(7rem, env(safe-area-inset-bottom));
   transform: translateX(-50%);
   padding: 8px 14px;
   border-radius: 999px;
