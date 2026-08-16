@@ -162,9 +162,12 @@ export const useFootballGame = () => {
         const field = fieldRef.current;
         if (!field) return;
 
+        const maxX = Math.max(0, field.clientWidth - PLAYER_WIDTH);
+        const maxY = Math.max(0, field.clientHeight - PLAYER_HEIGHT);
+
         const nextPlayer = {
-            x: clamp(playerRef.current.x + deltaX, 8, field.clientWidth - PLAYER_WIDTH - 8),
-            y: clamp(playerRef.current.y + deltaY, 8, field.clientHeight - PLAYER_HEIGHT - 8),
+            x: clamp(playerRef.current.x + deltaX, 0, maxX),
+            y: clamp(playerRef.current.y + deltaY, 0, maxY),
             width: PLAYER_WIDTH,
             height: PLAYER_HEIGHT,
         };
@@ -333,15 +336,18 @@ export const useFootballGame = () => {
                 goalWindowRef.current = false;
             }
 
-            if (x + radius >= width) {
-                x = width - radius;
-                vx *= -1;
-            }
-
-            if (x + radius <= 0) {
+            if (x - radius <= 0) {
                 triggerFail();
                 return;
             }
+
+            if (x + radius >= width) {
+                x = width - radius;
+                vx = -Math.abs(vx);
+            }
+
+            x = clamp(x, radius, width - radius);
+            y = clamp(y, radius, height - radius);
 
             ballRef.current = { x, y, vx, vy, radius };
             setBall({ ...ballRef.current });
