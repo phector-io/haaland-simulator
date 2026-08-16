@@ -50,6 +50,15 @@ function App() {
 
                     <div className="message-box">{message}</div>
 
+                    {!showJoystick && (
+                        <div className="desktop-controls" aria-label="Use arrow keys to move">
+                            <span className="keycap">←</span>
+                            <span className="keycap">↑</span>
+                            <span className="keycap">→</span>
+                            <span className="keycap">↓</span>
+                        </div>
+                    )}
+
                     {showJoystick && (
                         <div
                             className={`joystick${joystick.active ? " active" : ""}`}
