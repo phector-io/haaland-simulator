@@ -1,5 +1,10 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 
 export type Ball = {
     x: number;
@@ -43,7 +48,14 @@ export const useFootballGame = () => {
     const goalSpeechTimeoutRef = useRef<number | null>(null);
     const goalWindowRef = useRef(false);
     const joystickVectorRef = useRef({ x: 0, y: 0 });
-    const keyboardStateRef = useRef({ left: false, right: false, up: false, down: false });
+    const keyboardStateRef = useRef({
+        left: false,
+        right: false,
+        up: false,
+        down: false,
+    });
+
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     const [playerScore, setPlayerScore] = useState(0);
     const [opponentScore] = useState(0);
@@ -66,57 +78,129 @@ export const useFootballGame = () => {
         height: PLAYER_HEIGHT,
     });
 
-    const resetBall = useCallback((direction: "left" | "right", preservePlayerPosition = false) => {
-        const field = fieldRef.current;
-        const width = field?.clientWidth ?? 360;
-        const height = field?.clientHeight ?? 540;
-        const centerX = width / 2;
-        const centerY = height / 2;
+    const resetBall = useCallback(
+        (direction: "left" | "right", preservePlayerPosition = false) => {
+            const field = fieldRef.current;
+            const width = field?.clientWidth ?? 360;
+            const height = field?.clientHeight ?? 540;
+            const centerX = width / 2;
+            const centerY = height / 2;
 
-        if (respawnTimeoutRef.current) {
-            window.clearTimeout(respawnTimeoutRef.current);
-        }
+            if (respawnTimeoutRef.current) {
+                window.clearTimeout(respawnTimeoutRef.current);
+            }
 
-        setShowFailModal(false);
-        ballRef.current = {
-            x: centerX,
-            y: centerY,
-            vx: 0,
-            vy: 0,
-            radius: 16,
-        };
-
-        if (!preservePlayerPosition) {
-            const resetPlayer = {
-                x: 18,
-                y: 340,
-                width: PLAYER_WIDTH,
-                height: PLAYER_HEIGHT,
-            };
-
-            playerRef.current = resetPlayer;
-            setPlayer(resetPlayer);
-        }
-
-        hasBeenShotRef.current = false;
-        setBall({ ...ballRef.current });
-        setMessage(direction === "right" ? "Kick-off! Haaland attacks" : "Kick-off! Defend");
-
-        respawnTimeoutRef.current = window.setTimeout(() => {
-            const angle = (Math.random() - 0.5) * 2.1 + (direction === "right" ? 0.2 : -0.2);
-            const speed = 2.8 + Math.random() * 2.5;
-
+            setShowFailModal(false);
             ballRef.current = {
                 x: centerX,
                 y: centerY,
-                vx: Math.cos(angle) * speed * (direction === "right" ? 1 : -1),
-                vy: Math.sin(angle) * (2.8 + Math.random() * 2.2),
+                vx: 0,
+                vy: 0,
                 radius: 16,
             };
+
+            if (!preservePlayerPosition) {
+                const resetPlayer = {
+                    x: 18,
+                    y: 340,
+                    width: PLAYER_WIDTH,
+                    height: PLAYER_HEIGHT,
+                };
+
+                playerRef.current = resetPlayer;
+                setPlayer(resetPlayer);
+            }
+
+            hasBeenShotRef.current = false;
             setBall({ ...ballRef.current });
-            setMessage(direction === "right" ? "Haaland shoots!" : "Opposition attacks!");
-        }, 700);
+            setMessage(
+                direction === "right"
+                    ? "Kick-off! Haaland attacks"
+                    : "Kick-off! Defend",
+            );
+
+            respawnTimeoutRef.current = window.setTimeout(() => {
+                const angle =
+                    (Math.random() - 0.5) * 2.1 +
+                    (direction === "right" ? 0.2 : -0.2);
+                const speed = 2.8 + Math.random() * 2.5;
+
+                ballRef.current = {
+                    x: centerX,
+                    y: centerY,
+                    vx:
+                        Math.cos(angle) *
+                        speed *
+                        (direction === "right" ? 1 : -1),
+                    vy: Math.sin(angle) * (2.8 + Math.random() * 2.2),
+                    radius: 16,
+                };
+                setBall({ ...ballRef.current });
+                setMessage(
+                    direction === "right"
+                        ? "Haaland shoots!"
+                        : "Opposition attacks!",
+                );
+            }, 700);
+        },
+        [],
+    );
+
+    const ensureAudioContext = useCallback(() => {
+        if (typeof window === "undefined") return null;
+
+        const AudioCtor =
+            window.AudioContext ||
+            (
+                window as typeof window & {
+                    webkitAudioContext?: typeof AudioContext;
+                }
+            ).webkitAudioContext;
+        if (!AudioCtor) return null;
+
+        if (!audioContextRef.current) {
+            audioContextRef.current = new AudioCtor();
+        }
+
+        if (audioContextRef.current.state === "suspended") {
+            void audioContextRef.current.resume();
+        }
+
+        return audioContextRef.current;
     }, []);
+
+    const playBounceSound = useCallback(
+        (type: "wall" | "player" | "goal") => {
+            const audioContext = ensureAudioContext();
+            if (!audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = type === "player" ? "triangle" : "square";
+            oscillator.frequency.setValueAtTime(
+                type === "player" ? 240 : type === "goal" ? 170 : 120,
+                audioContext.currentTime,
+            );
+
+            gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(
+                type === "player" ? 0.05 : type === "goal" ? 0.04 : 0.025,
+                audioContext.currentTime + 0.01,
+            );
+            gainNode.gain.exponentialRampToValueAtTime(
+                0.0001,
+                audioContext.currentTime + 0.08,
+            );
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.09);
+        },
+        [ensureAudioContext],
+    );
 
     const triggerFail = useCallback(() => {
         const field = fieldRef.current;
@@ -166,9 +250,10 @@ export const useFootballGame = () => {
         ballRef.current.vx = 6.2;
         ballRef.current.vy = impactOffset * 0.14;
         hasBeenShotRef.current = true;
+        playBounceSound("player");
         setMessage("Haaland shoots!");
         return true;
-    }, []);
+    }, [playBounceSound]);
 
     const movePlayer = useCallback((deltaX: number, deltaY: number) => {
         const field = fieldRef.current;
@@ -188,51 +273,58 @@ export const useFootballGame = () => {
         setPlayer(nextPlayer);
     }, []);
 
-    const updateJoystick = useCallback((pointerX: number, pointerY: number, baseElement: HTMLDivElement) => {
-        const rect = baseElement.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const rawX = pointerX - centerX;
-        const rawY = pointerY - centerY;
-        const maxDistance = rect.width * 0.32;
-        const distance = Math.min(Math.hypot(rawX, rawY), maxDistance);
-        const angle = Math.atan2(rawY, rawX);
-        const clampedX = Math.cos(angle) * distance;
-        const clampedY = Math.sin(angle) * distance;
-        const normalizedX = maxDistance === 0 ? 0 : clampedX / maxDistance;
-        const normalizedY = maxDistance === 0 ? 0 : clampedY / maxDistance;
+    const updateJoystick = useCallback(
+        (pointerX: number, pointerY: number, baseElement: HTMLDivElement) => {
+            const rect = baseElement.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const rawX = pointerX - centerX;
+            const rawY = pointerY - centerY;
+            const maxDistance = rect.width * 0.32;
+            const distance = Math.min(Math.hypot(rawX, rawY), maxDistance);
+            const angle = Math.atan2(rawY, rawX);
+            const clampedX = Math.cos(angle) * distance;
+            const clampedY = Math.sin(angle) * distance;
+            const normalizedX = maxDistance === 0 ? 0 : clampedX / maxDistance;
+            const normalizedY = maxDistance === 0 ? 0 : clampedY / maxDistance;
 
-        joystickVectorRef.current = { x: normalizedX, y: normalizedY };
-        setJoystick({ x: clampedX, y: clampedY, active: true });
-        movePlayer(normalizedX * 12, normalizedY * 12);
-    }, [movePlayer]);
+            joystickVectorRef.current = { x: normalizedX, y: normalizedY };
+            setJoystick({ x: clampedX, y: clampedY, active: true });
+            movePlayer(normalizedX * 12, normalizedY * 12);
+        },
+        [movePlayer],
+    );
 
-    const handlePlayerPointerDown = useCallback((
-        event: React.PointerEvent<HTMLDivElement>,
-    ) => {
-        event.preventDefault();
-        event.stopPropagation();
-        isDraggingRef.current = true;
-        updateJoystick(event.clientX, event.clientY, event.currentTarget);
-    }, [updateJoystick]);
+    const handlePlayerPointerDown = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            event.preventDefault();
+            event.stopPropagation();
+            ensureAudioContext();
+            isDraggingRef.current = true;
+            updateJoystick(event.clientX, event.clientY, event.currentTarget);
+        },
+        [ensureAudioContext, updateJoystick],
+    );
 
-    const handlePlayerPointerMove = useCallback((
-        event: React.PointerEvent<HTMLDivElement>,
-    ) => {
-        if (!isDraggingRef.current) return;
-        updateJoystick(event.clientX, event.clientY, event.currentTarget);
-    }, [updateJoystick]);
+    const handlePlayerPointerMove = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            if (!isDraggingRef.current) return;
+            updateJoystick(event.clientX, event.clientY, event.currentTarget);
+        },
+        [updateJoystick],
+    );
 
-    const handlePlayerPointerUp = useCallback((
-        event: React.PointerEvent<HTMLDivElement>,
-    ) => {
-        isDraggingRef.current = false;
-        joystickVectorRef.current = { x: 0, y: 0 };
-        setJoystick({ x: 0, y: 0, active: false });
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
-        }
-    }, []);
+    const handlePlayerPointerUp = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            isDraggingRef.current = false;
+            joystickVectorRef.current = { x: 0, y: 0 };
+            setJoystick({ x: 0, y: 0, active: false });
+            if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            }
+        },
+        [],
+    );
 
     useEffect(() => {
         resetBall("left");
@@ -241,9 +333,12 @@ export const useFootballGame = () => {
 
     useEffect(() => {
         const updatePointerMode = () => {
-            const isTouchMode = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+            const isTouchMode = window.matchMedia(
+                "(hover: none) and (pointer: coarse)",
+            ).matches;
             const hasTouchScreen = navigator.maxTouchPoints > 0;
-            const isSmallTouchViewport = window.innerWidth <= 1024 && hasTouchScreen;
+            const isSmallTouchViewport =
+                window.innerWidth <= 1024 && hasTouchScreen;
 
             setShowJoystick(Boolean(isTouchMode || isSmallTouchViewport));
         };
@@ -256,21 +351,31 @@ export const useFootballGame = () => {
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+            if (
+                ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                    event.key,
+                )
+            ) {
                 event.preventDefault();
             }
 
+            ensureAudioContext();
+
             if (event.key === "ArrowLeft") keyboardStateRef.current.left = true;
-            if (event.key === "ArrowRight") keyboardStateRef.current.right = true;
+            if (event.key === "ArrowRight")
+                keyboardStateRef.current.right = true;
             if (event.key === "ArrowUp") keyboardStateRef.current.up = true;
             if (event.key === "ArrowDown") keyboardStateRef.current.down = true;
         };
 
         const handleKeyUp = (event: KeyboardEvent) => {
-            if (event.key === "ArrowLeft") keyboardStateRef.current.left = false;
-            if (event.key === "ArrowRight") keyboardStateRef.current.right = false;
+            if (event.key === "ArrowLeft")
+                keyboardStateRef.current.left = false;
+            if (event.key === "ArrowRight")
+                keyboardStateRef.current.right = false;
             if (event.key === "ArrowUp") keyboardStateRef.current.up = false;
-            if (event.key === "ArrowDown") keyboardStateRef.current.down = false;
+            if (event.key === "ArrowDown")
+                keyboardStateRef.current.down = false;
         };
 
         window.addEventListener("keydown", handleKeyDown);
@@ -294,8 +399,12 @@ export const useFootballGame = () => {
             if (!field) return;
 
             const { x: joystickX, y: joystickY } = joystickVectorRef.current;
-            const keyboardX = (keyboardStateRef.current.right ? 1 : 0) - (keyboardStateRef.current.left ? 1 : 0);
-            const keyboardY = (keyboardStateRef.current.down ? 1 : 0) - (keyboardStateRef.current.up ? 1 : 0);
+            const keyboardX =
+                (keyboardStateRef.current.right ? 1 : 0) -
+                (keyboardStateRef.current.left ? 1 : 0);
+            const keyboardY =
+                (keyboardStateRef.current.down ? 1 : 0) -
+                (keyboardStateRef.current.up ? 1 : 0);
 
             if (joystickX !== 0 || joystickY !== 0) {
                 movePlayer(joystickX * 18, joystickY * 18);
@@ -329,6 +438,7 @@ export const useFootballGame = () => {
             if (y <= radius || y >= height - radius) {
                 vy *= -1;
                 y = clamp(y, radius, height - radius);
+                playBounceSound("wall");
             }
 
             if (handleBallPlayerCollision()) {
@@ -345,6 +455,7 @@ export const useFootballGame = () => {
             if (isInsideGoalOpening && !goalWindowRef.current) {
                 goalWindowRef.current = true;
                 setPlayerScore((current) => current + 1);
+                playBounceSound("goal");
                 triggerGoalSpeech();
                 setMessage("Goal! Haaland scores");
             } else if (!isInsideGoalOpening) {
@@ -359,6 +470,7 @@ export const useFootballGame = () => {
             if (x + radius >= width) {
                 x = width - radius;
                 vx = -Math.abs(vx);
+                playBounceSound("wall");
             }
 
             if (x <= radius) {
@@ -374,7 +486,7 @@ export const useFootballGame = () => {
 
         const intervalId = window.setInterval(tick, 16);
         return () => window.clearInterval(intervalId);
-    }, [handleBallPlayerCollision, resetBall, triggerFail]);
+    }, [handleBallPlayerCollision, playBounceSound, resetBall, triggerFail]);
 
     return {
         fieldRef,
