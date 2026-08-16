@@ -174,30 +174,47 @@ export const useFootballGame = () => {
             const audioContext = ensureAudioContext();
             if (!audioContext) return;
 
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
+            const startTime = audioContext.currentTime;
+            const baseFrequency =
+                type === "player" ? 210 : type === "goal" ? 165 : 110;
+            const volume = type === "player" ? 0.08 : type === "goal" ? 0.06 : 0.04;
 
-            oscillator.type = type === "player" ? "triangle" : "square";
-            oscillator.frequency.setValueAtTime(
-                type === "player" ? 240 : type === "goal" ? 170 : 120,
-                audioContext.currentTime,
+            const bodyOsc = audioContext.createOscillator();
+            const bodyGain = audioContext.createGain();
+            const lowOsc = audioContext.createOscillator();
+            const lowGain = audioContext.createGain();
+
+            bodyOsc.type = "triangle";
+            bodyOsc.frequency.setValueAtTime(baseFrequency, startTime);
+            bodyOsc.frequency.exponentialRampToValueAtTime(
+                baseFrequency * 0.72,
+                startTime + 0.09,
             );
 
-            gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(
-                type === "player" ? 0.05 : type === "goal" ? 0.04 : 0.025,
-                audioContext.currentTime + 0.01,
-            );
-            gainNode.gain.exponentialRampToValueAtTime(
-                0.0001,
-                audioContext.currentTime + 0.08,
+            lowOsc.type = "sine";
+            lowOsc.frequency.setValueAtTime(baseFrequency * 0.5, startTime);
+            lowOsc.frequency.exponentialRampToValueAtTime(
+                baseFrequency * 0.4,
+                startTime + 0.12,
             );
 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
+            bodyGain.gain.setValueAtTime(0.0001, startTime);
+            bodyGain.gain.exponentialRampToValueAtTime(volume, startTime + 0.005);
+            bodyGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.14);
 
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.09);
+            lowGain.gain.setValueAtTime(0.0001, startTime);
+            lowGain.gain.exponentialRampToValueAtTime(volume * 0.65, startTime + 0.01);
+            lowGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.16);
+
+            bodyOsc.connect(bodyGain);
+            lowOsc.connect(lowGain);
+            bodyGain.connect(audioContext.destination);
+            lowGain.connect(audioContext.destination);
+
+            bodyOsc.start(startTime);
+            lowOsc.start(startTime);
+            bodyOsc.stop(startTime + 0.16);
+            lowOsc.stop(startTime + 0.18);
         },
         [ensureAudioContext],
     );
