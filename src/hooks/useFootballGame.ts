@@ -41,10 +41,14 @@ export const useFootballGame = () => {
     const isDraggingRef = useRef(false);
     const respawnTimeoutRef = useRef<number | null>(null);
     const goalWindowRef = useRef(false);
+    const joystickVectorRef = useRef({ x: 0, y: 0 });
+    const keyboardStateRef = useRef({ left: false, right: false, up: false, down: false });
 
     const [playerScore, setPlayerScore] = useState(0);
     const [opponentScore] = useState(0);
     const [message, setMessage] = useState("Drag Haaland to shoot");
+    const [joystick, setJoystick] = useState({ x: 0, y: 0, active: false });
+    const [showJoystick, setShowJoystick] = useState(false);
     const [showFailModal, setShowFailModal] = useState(false);
     const [ball, setBall] = useState<Ball>({
         x: 220,
@@ -154,25 +158,13 @@ export const useFootballGame = () => {
         return true;
     }, []);
 
-    const movePlayerToPointer = useCallback((clientX: number, clientY: number) => {
+    const movePlayer = useCallback((deltaX: number, deltaY: number) => {
         const field = fieldRef.current;
         if (!field) return;
 
-        const rect = field.getBoundingClientRect();
-        const nextX = clamp(
-            clientX - rect.left - PLAYER_WIDTH / 2,
-            8,
-            rect.width - PLAYER_WIDTH - 8,
-        );
-        const nextY = clamp(
-            clientY - rect.top - PLAYER_HEIGHT / 2,
-            8,
-            rect.height - PLAYER_HEIGHT - 8,
-        );
-
         const nextPlayer = {
-            x: nextX,
-            y: nextY,
+            x: clamp(playerRef.current.x + deltaX, 8, field.clientWidth - PLAYER_WIDTH - 8),
+            y: clamp(playerRef.current.y + deltaY, 8, field.clientHeight - PLAYER_HEIGHT - 8),
             width: PLAYER_WIDTH,
             height: PLAYER_HEIGHT,
         };
@@ -181,44 +173,49 @@ export const useFootballGame = () => {
         setPlayer(nextPlayer);
     }, []);
 
+    const updateJoystick = useCallback((pointerX: number, pointerY: number, baseElement: HTMLDivElement) => {
+        const rect = baseElement.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const rawX = pointerX - centerX;
+        const rawY = pointerY - centerY;
+        const maxDistance = rect.width * 0.32;
+        const distance = Math.min(Math.hypot(rawX, rawY), maxDistance);
+        const angle = Math.atan2(rawY, rawX);
+        const clampedX = Math.cos(angle) * distance;
+        const clampedY = Math.sin(angle) * distance;
+        const normalizedX = maxDistance === 0 ? 0 : clampedX / maxDistance;
+        const normalizedY = maxDistance === 0 ? 0 : clampedY / maxDistance;
+
+        joystickVectorRef.current = { x: normalizedX, y: normalizedY };
+        setJoystick({ x: clampedX, y: clampedY, active: true });
+        movePlayer(normalizedX * 18, normalizedY * 18);
+    }, [movePlayer]);
+
     const handlePlayerPointerDown = useCallback((
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
         event.preventDefault();
         event.stopPropagation();
         isDraggingRef.current = true;
-
-        const captureTarget = fieldRef.current ?? event.currentTarget;
-        if (captureTarget && typeof captureTarget.setPointerCapture === "function") {
-            captureTarget.setPointerCapture(event.pointerId);
-        }
-
-        movePlayerToPointer(event.clientX, event.clientY);
-    }, [movePlayerToPointer]);
+        updateJoystick(event.clientX, event.clientY, event.currentTarget);
+    }, [updateJoystick]);
 
     const handlePlayerPointerMove = useCallback((
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
         if (!isDraggingRef.current) return;
-        movePlayerToPointer(event.clientX, event.clientY);
-    }, [movePlayerToPointer]);
+        updateJoystick(event.clientX, event.clientY, event.currentTarget);
+    }, [updateJoystick]);
 
     const handlePlayerPointerUp = useCallback((
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
-        if (!isDraggingRef.current) {
-            const captureTarget = fieldRef.current ?? event.currentTarget;
-            if (captureTarget && typeof captureTarget.hasPointerCapture === "function" && captureTarget.hasPointerCapture(event.pointerId)) {
-                captureTarget.releasePointerCapture(event.pointerId);
-            }
-            return;
-        }
-
         isDraggingRef.current = false;
-
-        const captureTarget = fieldRef.current ?? event.currentTarget;
-        if (captureTarget && typeof captureTarget.hasPointerCapture === "function" && captureTarget.hasPointerCapture(event.pointerId)) {
-            captureTarget.releasePointerCapture(event.pointerId);
+        joystickVectorRef.current = { x: 0, y: 0 };
+        setJoystick({ x: 0, y: 0, active: false });
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
         }
     }, []);
 
@@ -228,7 +225,46 @@ export const useFootballGame = () => {
     }, [resetBall]);
 
     useEffect(() => {
+        const updatePointerMode = () => {
+            const isTouchMode = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+            const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
+            const hasTouchScreen = navigator.maxTouchPoints > 0;
+            const isTabletViewport = window.matchMedia("(max-width: 820px)").matches;
+
+            setShowJoystick(isTouchMode || isCoarsePointer || hasTouchScreen || isTabletViewport);
+        };
+
+        updatePointerMode();
+        window.addEventListener("resize", updatePointerMode);
+
+        return () => window.removeEventListener("resize", updatePointerMode);
+    }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
+                event.preventDefault();
+            }
+
+            if (event.key === "ArrowLeft") keyboardStateRef.current.left = true;
+            if (event.key === "ArrowRight") keyboardStateRef.current.right = true;
+            if (event.key === "ArrowUp") keyboardStateRef.current.up = true;
+            if (event.key === "ArrowDown") keyboardStateRef.current.down = true;
+        };
+
+        const handleKeyUp = (event: KeyboardEvent) => {
+            if (event.key === "ArrowLeft") keyboardStateRef.current.left = false;
+            if (event.key === "ArrowRight") keyboardStateRef.current.right = false;
+            if (event.key === "ArrowUp") keyboardStateRef.current.up = false;
+            if (event.key === "ArrowDown") keyboardStateRef.current.down = false;
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        window.addEventListener("keyup", handleKeyUp);
+
         return () => {
+            window.removeEventListener("keydown", handleKeyDown);
+            window.removeEventListener("keyup", handleKeyUp);
             if (respawnTimeoutRef.current) {
                 window.clearTimeout(respawnTimeoutRef.current);
             }
@@ -239,6 +275,18 @@ export const useFootballGame = () => {
         const tick = () => {
             const field = fieldRef.current;
             if (!field) return;
+
+            const { x: joystickX, y: joystickY } = joystickVectorRef.current;
+            const keyboardX = (keyboardStateRef.current.right ? 1 : 0) - (keyboardStateRef.current.left ? 1 : 0);
+            const keyboardY = (keyboardStateRef.current.down ? 1 : 0) - (keyboardStateRef.current.up ? 1 : 0);
+
+            if (joystickX !== 0 || joystickY !== 0) {
+                movePlayer(joystickX * 18, joystickY * 18);
+            }
+
+            if (keyboardX !== 0 || keyboardY !== 0) {
+                movePlayer(keyboardX * 12, keyboardY * 12);
+            }
 
             const width = field.clientWidth;
             const height = field.clientHeight;
@@ -315,5 +363,8 @@ export const useFootballGame = () => {
         handlePlayerPointerMove,
         handlePlayerPointerUp,
         resetBall,
+        joystick,
+        setJoystick,
+        showJoystick,
     };
 };
