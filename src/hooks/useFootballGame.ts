@@ -229,7 +229,7 @@ export const useFootballGame = () => {
             const isTouchMode = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
             const isCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
             const hasTouchScreen = navigator.maxTouchPoints > 0;
-            const isTabletViewport = window.matchMedia("(max-width: 820px)").matches;
+            const isTabletViewport = window.matchMedia("(max-width: 1024px)").matches;
 
             setShowJoystick(isTouchMode || isCoarsePointer || hasTouchScreen || isTabletViewport);
         };
