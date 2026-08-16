@@ -25,7 +25,14 @@ function App() {
             <div className="game-panel">
                 <Scoreboard playerScore={playerScore} opponentScore={opponentScore} />
 
-                <div className="pitch" ref={fieldRef}>
+                <div
+                    className="pitch"
+                    ref={fieldRef}
+                    onPointerDown={handlePlayerPointerDown}
+                    onPointerMove={handlePlayerPointerMove}
+                    onPointerUp={handlePlayerPointerUp}
+                    onPointerCancel={handlePlayerPointerUp}
+                >
                     <div className="pitch-stripes" />
                     <div className="center-circle" />
                     <div className="goal goal-right" aria-label="Goal on the right" />

@@ -185,8 +185,14 @@ export const useFootballGame = () => {
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
         event.preventDefault();
+        event.stopPropagation();
         isDraggingRef.current = true;
-        event.currentTarget.setPointerCapture(event.pointerId);
+
+        const captureTarget = fieldRef.current ?? event.currentTarget;
+        if (captureTarget && typeof captureTarget.setPointerCapture === "function") {
+            captureTarget.setPointerCapture(event.pointerId);
+        }
+
         movePlayerToPointer(event.clientX, event.clientY);
     }, [movePlayerToPointer]);
 
@@ -200,13 +206,19 @@ export const useFootballGame = () => {
     const handlePlayerPointerUp = useCallback((
         event: React.PointerEvent<HTMLDivElement>,
     ) => {
-        if (!isDraggingRef.current && !event.currentTarget.hasPointerCapture(event.pointerId)) {
+        if (!isDraggingRef.current) {
+            const captureTarget = fieldRef.current ?? event.currentTarget;
+            if (captureTarget && typeof captureTarget.hasPointerCapture === "function" && captureTarget.hasPointerCapture(event.pointerId)) {
+                captureTarget.releasePointerCapture(event.pointerId);
+            }
             return;
         }
 
         isDraggingRef.current = false;
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-            event.currentTarget.releasePointerCapture(event.pointerId);
+
+        const captureTarget = fieldRef.current ?? event.currentTarget;
+        if (captureTarget && typeof captureTarget.hasPointerCapture === "function" && captureTarget.hasPointerCapture(event.pointerId)) {
+            captureTarget.releasePointerCapture(event.pointerId);
         }
     }, []);
 
